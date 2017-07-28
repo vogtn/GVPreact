@@ -90,16 +90,25 @@ class VideoComponent extends Component {
       return source;
   }
 
+
+
   render() {
     return (
-      <div class={styles.fillElement}>
+      <div className={styles.fillElement}>
           <h1>Video Component</h1>
           <video playsinline tabindex="1" 
-            class={styles.videoElement} 
+            className={styles.videoElement} 
             src='http://gvpcertvideos.att.com/att-videos/2015/gvp_HTC-Desire-626-Sizzle_5000419/gvp_HTC-Desire-626-Sizzle_5000419_480.webm'
-            style={{display: 'block'}} 
+            style={{display: 'block', opacity: this.playing ? '1' : '.75'}} 
+            event-playing={() => { this.invalidate(); }}
+            event-pause={() => { this.invalidate(); }}
+            event-volumechange={() => { this.invalidate(); }}
+            event-timeupdate={this.handlerTimeUpdate}
+            event-progress={this.handlerProgress}
+            event-ended={this.handlerEnded}
             controls
             />
+            {this.children}
       </div>
     );
   }
