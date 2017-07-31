@@ -2,6 +2,7 @@ import * as jQuery from 'jquery';
 import * as _ from 'lodash';
 import React, { Component } from 'react';
 import * as styles from '../css/videoComponent.css';
+import { Utils } from '../Core/src/classes/Utils.js'
 
 
 
@@ -13,12 +14,12 @@ class VideoComponent extends Component {
       }
   }
 
-  _textTrack = () => {
+  textTrack = () => {
     if(this.video && this.video.textTracks && this.video.textTracks.length > 0)
     return this.video.textTracks[0];
   }
 
-  _loadedMetaData = (event) => {
+  loadedMetaData = (event) => {
     event.target.removeEventListener('loadedmetadata', this.loadedMetaData)
     let htmlVideo = event.target;
     if (this.videoData[htmlVideo.id].duration == 0 && isFinite(htmlVideo.duration)) {
@@ -33,7 +34,7 @@ class VideoComponent extends Component {
     htmlVideo.gvpConfig = {};
   }
 
-  _added = () => {
+  added = () => {
     for (let i = 0; i < this.attributes.source.length; i++) {
         this.videoData[i] = { duration: 0 };
         let video = jQuery(this.element).find('video').get(i)
@@ -76,21 +77,75 @@ class VideoComponent extends Component {
     }
   }
 
-  _getMpdSource = (source) => {
+  getMpdSource = (source) => {
     if (_.endsWith(source, '_480')) {
             source = source.substring(0, source.length - 4);
         }
     return source + '.mpd';
   }
 
-  _getM3U8Source = (source) => {
+  getM3U8Source = (source) => {
       if(_.endsWith(source, '_480')) {
           return source.substring(0, source.length -4);
       }
       return source;
   }
 
+  handleProgress = (event) => {
+    this.invalidate();
+  }
 
+  handlerTimeUpdate = (event) => {
+    // Rounds current time value so that events don't fire more than in once second intervals.
+    if (this.video && Math.round(this.video.currentTime) != this.lastCurrentTimeValue) {
+        if (this.videoData[this.videoIdx].duration == 0 && isFinite(this.video.duration)) {
+            this.videoData[this.videoIdx].duration = this.video.duration;
+        }
+        this.lastCurrentTimeValue = Math.round(this.video.currentTime);
+        this.invalidate();
+    }
+  }
+
+  playvideoIdx = (config) => {
+    let vid = jQuery(this.element).find('video');
+    let source = this.attributes.source[this.videoIdx];
+    vid.find('source').remove();
+    vid.append('<source type="video/mp4" src="' + source + '.webm"></source>');
+    vid.append('<source type="video/mp4" src="' + source + '.mp4"></source>');
+    vid.append('<source type="video/mp4" src="' + this.getM3U8Source(source) + '.m3u8"></source>');
+    this.video.load();
+    if (typeof config !== 'undefined') {
+        this.video.gvpConfig = config;
+        this.video.addEventListener('loadedmetadata', this.loadedMetaData);
+    }
+    this.invalidate();
+  }
+
+  removeTextTracks = () => {
+      if (!this.video) return;
+  }
+
+  setTextTracks = (captions) => {
+    if (!this.video) return;
+    if (this.video.addTextTrack) {
+        let textTrack = this.video.addTextTrack('subtitles', 'English', 'en');
+
+        jQuery(captions).find('p').each((idx, item) => {
+            let startTime = Utils.timecodeToSeconds(jQuery(item).attr('begin'));
+            let endTime = Utils.timecodeToSeconds(jQuery(item).attr('end'));
+            let cue = null;
+            if (typeof VTTCue !== 'undefined') {
+                cue = new VTTCue(startTime, endTime, jQuery(item).html().replace(/<br\s*[\/]?>/gi, "\n"));
+            } else if (typeof TextTrackCue !== 'undefined') {
+                cue = new TextTrackCue(startTime, endTime, jQuery(item).html().replace(/<br\s*[\/]?>/gi, "\n"));
+            }
+            cue.snapToLines = false;
+            if (cue) textTrack.addCue(cue);
+        });
+        this.video.textTracks[0].mode = "hidden";
+
+    } 
+  }
 
   render() {
     return (
