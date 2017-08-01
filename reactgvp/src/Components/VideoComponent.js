@@ -147,11 +147,155 @@ class VideoComponent extends Component {
     } 
   }
 
+  pause = () => {
+    this.playing = false;
+  }
+
+  isLoading = () => {
+    if (this.video) {
+        if (this.video.readyState == 4) {
+            return false;
+        } else {
+            let seekableTimeRanges = this.video.seekable;
+            for (let i = 0; i < seekableTimeRanges.length; i++) {
+                if (this.video.currentTime >= seekableTimeRanges.start(i) && this.video.currentTime <= seekableTimeRanges.end(i)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+    return true;    
+  }
+
+
+  video = () => {
+      if(!this.element) return;
+      return jQuery(this.element).find('video').get(0);
+  }
+
+  replay = () => {
+    this.videoIdx = 0;
+    this.playVideoIdx({ currentTime: 0, playing: true });
+  }
+
+  buffered = () => {
+    if (!this.video || !this.video.buffered.length) return 0;
+    return this.video.buffered.end(this.video.buffered.length - 1);
+  }
+
+  isAtEnd = () => {
+    if (!this.video) return false;
+    return this.attributes.source.length <= this.videoIdx + 1 && this.video.currentTime >= this.video.duration;      
+  }
+
+  getPlaying = () => {
+    if (!this.video) return false;
+    if (this.isAtEnd) return false;
+    return !this.video.paused;
+  }
+
+  setPlaying = (input) => {
+    if (!this.video) return;
+    if (!this.video.paused != input) {
+        input ? this.video.play() : this.video.pause();
+    }  
+  }
+
+  getVolume = () => {
+    if (this.video && !this.video.muted) return this.video.volume;
+    return 0;
+  }
+
+  setVolume = (input) => {
+    if (input > 1)
+        input = 1;
+    if (input < 0)
+        input = 0;
+    if (this.video && this.video.volume != input) {
+        this.video.volume = input;
+    }
+    if (typeof (Storage) !== 'undefined') {
+        localStorage.gvpVolume = input;
+    }
+    if (input > 0) {
+        this.muted = false;
+    }
+  }
+
+  getMuted = () => {
+    if (this.video) return this.video.muted;
+    return false;  
+  }
+
+  setMuted = (input) => {
+    if (this.video && this.video.muted != input) {
+        this.video.muted = input;
+    }    
+  }
+
+  getLoop = () => {
+    if (this.video) return this.video.loop;
+    return false;  
+  }
+
+  setLoop = (input) => {
+    if (this.video && this.video.loop != input)
+        this.video.loop = input;      
+  }
+
+  getTotalTime = () => {
+    let totalTime = 0;
+    for (let i = 0; i < this.attributes.source.length; i++) {
+        if (this.videoData[i] && this.videoData[i].duration) {
+            totalTime += this.videoData[i].duration;
+        } else {
+            //could ask track for duration, but need id?
+        }
+    }
+    return totalTime;
+  }
+
+  getCurrentTime = () => {
+    let totalTime = 0;
+    if (this.video) {
+        for (let i = 0; i < this.videoIdx; i++) {
+            if (this.videoData[i] && this.videoData[i].duration) {
+                totalTime += this.videoData[i].duration;
+            } else {
+                //could ask track for duration, but need id?
+            }
+        }
+        totalTime += this.video.currentTime;
+    }
+    return totalTime;      
+  }
+
+  setCurrentTime = (input) => {
+    let totalTime = 0;
+    if (this.video) {
+        for (let i = 0; i < this.attributes.source.length; i++) {
+            totalTime += this.videoData[i].duration;
+            if (totalTime > input) {
+                let prevTime = totalTime - this.videoData[i].duration;
+                let goto = input - prevTime;
+                if (this.videoIdx != i) {
+                    this.videoIdx = i;
+                    this.playVideoIdx({ currentTime: goto, playing: this.playing });
+                } else {
+                    this.video.currentTime = goto;
+                }
+                break;
+            }
+        }
+    }    
+  }
+
   render() {
     return (
       <div className={styles.fillElement}>
           <h1>Video Component</h1>
-          <video playsinline tabindex="1" 
+          <video playsInline tabIndex="1" 
             className={styles.videoElement} 
             src='http://gvpcertvideos.att.com/att-videos/2015/gvp_HTC-Desire-626-Sizzle_5000419/gvp_HTC-Desire-626-Sizzle_5000419_480.webm'
             style={{display: 'block', opacity: this.playing ? '1' : '.75'}} 
